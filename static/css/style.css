@@ -1,0 +1,403 @@
+body {
+    font-family: sans-serif;
+    background-color: #222;
+    color: #eee;
+    margin: 0;
+    padding: 0;
+}
+
+#search-container {
+    background-color: #333;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.search-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+
+.search-row:last-child {
+    margin-bottom: 0;
+}
+
+input[type='text'], select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 3px;
+    border: 1px solid #555;
+    background-color: #444;
+    color: #eee;
+}
+
+#tags-search { flex-grow: 1; }
+
+button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 3px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+#gallery-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+    gap: 15px;
+}
+
+.gallery-item a {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.gallery-item {
+    background-color: #333;
+    border: 1px solid #444;
+    border-radius: 4px;
+    overflow: hidden;
+    text-align: center;
+    position: relative;
+    transition: transform 0.2s ease;
+}
+
+.gallery-item:hover {
+    transform: scale(1.03);
+    border-color: #007bff;
+}
+
+.gallery-item img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    display: block;
+}
+
+.delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    cursor: pointer;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.gallery-item:hover .delete-btn {
+    opacity: 1;
+}
+
+.delete-btn:hover {
+    background-color: #dc3545;
+}
+
+.rating-container {
+    position: absolute;
+    bottom: 30px; /* Adjust based on title height */
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.6);
+    transition: opacity 0.2s;
+}
+
+/* Hide container for unrated items by default */
+.rating-container.no-rating {
+    opacity: 0;
+}
+
+/* Show container for unrated items on gallery hover */
+.gallery-item:hover .rating-container.no-rating {
+    opacity: 1;
+}
+
+/* Keep container for rated items visible */
+.rating-container.has-rating {
+    opacity: 1;
+}
+
+.rating-star {
+    width: 20px;
+    height: 20px;
+    background-image: url('/static/ratestar.png');
+    background-size: cover;
+    cursor: pointer;
+    filter: grayscale(100%);
+    transition: filter 0.1s;
+}
+
+/* Make rated stars yellow */
+.rating-star.rated {
+    filter: grayscale(0%);
+}
+
+/* --- Interactive Hover Effect --- */
+
+/* On container hover, turn all stars yellow */
+.rating-container:hover .rating-star {
+    filter: grayscale(0%);
+}
+
+/* On star hover, turn all FOLLOWING stars gray again */
+.rating-container .rating-star:hover ~ .rating-star {
+    filter: grayscale(100%);
+}
+
+.change-cover-btn {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.gallery-item:hover .change-cover-btn {
+    opacity: 1;
+}
+
+.change-cover-btn:hover {
+    background-color: #007bff;
+}
+
+/* --- Modal Styles --- */
+
+.modal-hidden {
+    display: none;
+}
+
+.modal-visible {
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #333;
+    padding: 20px;
+    border: 1px solid #888;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 900px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    align-self: flex-end;
+}
+
+.modal-close:hover,
+.modal-close:focus {
+    color: white;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+#modal-image-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    overflow-y: auto;
+    flex-grow: 1;
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #222;
+}
+
+#modal-image-container img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 3px;
+}
+
+#modal-image-container img.selected {
+    border-color: #007bff;
+}
+
+#modal-confirm-button {
+    margin-top: 15px;
+    align-self: center;
+}
+
+
+
+
+.gallery-item .title {
+    padding: 5px;
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rating-overlay {
+    position: absolute;
+    bottom: 30px; /* Adjust based on title height */
+    left: 0;
+    width: 100%;
+    display: flex;
+}
+
+.star {
+    width: 20px;
+    height: 20px;
+    background-image: url('/static/ratestar.png');
+    background-size: cover;
+}
+
+#pagination-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 0;
+}
+
+#page-info {
+    margin: 0 15px;
+}
+
+/* Reader UI Overlays */
+#reader-ui-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Allows clicks to go through to the image */
+    z-index: 10;
+}
+
+#top-left-overlay,
+#top-right-overlay,
+#bottom-right-overlay {
+    position: absolute;
+    padding: 10px;
+    pointer-events: all; /* Re-enable pointer events for the controls */
+}
+
+#top-left-overlay {
+    top: 0;
+    left: 0;
+}
+
+#top-right-overlay {
+    top: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#bottom-right-overlay {
+    bottom: 0;
+    right: 0;
+}
+
+#page-counter {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+#reader-ui-overlay button {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: 1px solid #555;
+}
+
+#reader-ui-overlay button:hover {
+    background-color: rgba(0, 123, 255, 0.7);
+    border-color: #007bff;
+}
+
+.info-btn {
+    position: absolute;
+    top: 30px; /* Position below the change cover button */
+    left: 5px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.gallery-item:hover .info-btn {
+    opacity: 1;
+}
+
+.info-btn:hover {
+    background-color: #17a2b8;
+}
+
+#info-modal-content {
+    padding: 10px;
+    background-color: #222;
+    border-radius: 3px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+#info-modal-content p {
+    margin: 0 0 10px;
+}
+
+#info-modal-content strong {
+    color: #007bff;
+}
+

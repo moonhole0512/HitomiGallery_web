@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reader</title>
+    <link rel="stylesheet" href="/static/css/style.css?v={{ version }}">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #111;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #reader-container {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            overflow: auto;
+        }
+
+        #reader-img {
+            object-fit: contain;
+            transition: width 0.2s ease-in-out, height 0.2s ease-in-out;
+            /* Transition for width/height */
+            height: auto;
+            width: auto;
+            margin: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="reader-ui-overlay">
+        <div id="top-left-overlay">
+            <div id="page-counter">1 / 1</div>
+        </div>
+        <div id="top-right-overlay">
+            <button id="zoom-out-button" title="Zoom Out">-</button>
+            <button id="zoom-in-button" title="Zoom In">+</button>
+            <button id="fit-width-button" title="Fit to Width">가로 꽉 차게</button>
+            <button id="fit-height-button" title="Fit to Height">세로 꽉 차게</button>
+        </div>
+        <div id="bottom-right-overlay">
+            <button id="list-button" title="Go to List">목록</button>
+        </div>
+    </div>
+
+    <div id="reader-container">
+        <img id="reader-img" src="" alt="Loading image...">
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const imgElement = document.getElementById('reader-img');
+            const pageCounter = document.getElementById('page-counter');
+            const readerContainer = document.getElementById('reader-container');
+            const zoomInButton = document.getElementById('zoom-in-button');
+            const zoomOutButton = document.getElementById('zoom-out-button');
+            const fitWidthButton = document.getElementById('fit-width-button');
+            const fitHeightButton = document.getElementById('fit-height-button');
+            const listButton = document.getElementById('list-button');
+            const idHitomi = Number("{{ id_hitomi }}");
+            let images = [];
+            let currentIndex = 0;
+            let currentWidthPercentage = 100; // Initial width in percentage
+            let fitMode = 'width'; // 'width', 'height', 'zoom' - Default to fit width
+
+            const savedFitMode = localStorage.getItem('readerFitMode');
+            if (savedFitMode) {
+                fitMode = savedFitMode;
+            }
+            const savedWidthPercentage = localStorage.getItem('readerWidthPercentage');
+            if (savedWidthPercentage && fitMode === 'zoom') {
+                currentWidthPercentage = parseInt(savedWidthPercentage);
+            }
+
+            const fetchImages = async () => {
+                try {
+                    const response = await fetch(`/api/galleries/${idHitomi}/images`);
+                    const data = await response.json();
+                    images = data.images;
+                    if (images.length > 0) {
+                        loadImage();
+                    } else {
+                        console.error('No images found in gallery.');
+                        imgElement.alt = 'No images found in this gallery.';
+                        pageCounter.textContent = '0 / 0';
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch image list:', error);
+                    imgElement.alt = 'Failed to load image list.';
+                }
+            };
+
+            const loadImage = () => {
+                if (images.length === 0) return;
+                const imagePath = images[currentIndex];
+                imgElement.src = `/api/galleries/${idHitomi}/image?path=${encodeURIComponent(imagePath)}`;
+                pageCounter.textContent = `${currentIndex + 1} / ${images.length}`;
+            };
+
+            imgElement.onload = () => {
+                applyStyles();
+                readerContainer.scrollTo(0, 0);
+            };
+
+            const navigate = (direction) => {
+                if (direction === 'next') {
+                    if (currentIndex < images.length - 1) {
+                        currentIndex++;
+                        loadImage();
+                    }
+                } else if (direction === 'prev') {
+                    if (currentIndex > 0) {
+                        currentIndex--;
+                        loadImage();
+                    }
+                }
+            };
+
+            const applyStyles = () => {
+                // Reset styles first
+                imgElement.style.width = 'auto';
+                imgElement.style.height = 'auto';
+                imgElement.style.maxWidth = '';
+                imgElement.style.maxHeight = '';
+                imgElement.style.transform = ''; // Clear any transform
+
+                if (fitMode === 'width') {
+                    imgElement.style.width = '100%';
+                    imgElement.style.height = 'auto';
+                } else if (fitMode === 'height') {
+                    imgElement.style.height = '100vh';
+                    imgElement.style.maxWidth = '100%';
+                } else if (fitMode === 'zoom') { // Manual width zoom
+                    imgElement.style.width = `${currentWidthPercentage}%`;
+                    imgElement.style.height = 'auto';
+                }
+                localStorage.setItem('readerFitMode', fitMode);
+                if (fitMode === 'zoom') {
+                    localStorage.setItem('readerWidthPercentage', currentWidthPercentage);
+                } else {
+                    localStorage.removeItem('readerWidthPercentage');
+                }
+            };
+
+            const zoomIn = (e) => {
+                e.stopPropagation();
+                fitMode = 'zoom';
+                currentWidthPercentage = Math.min(currentWidthPercentage + 10, 300); // Max zoom 300%
+                applyStyles();
+            };
+
+            const zoomOut = (e) => {
+                e.stopPropagation();
+                fitMode = 'zoom';
+                currentWidthPercentage = Math.max(currentWidthPercentage - 10, 10); // Min zoom 10%
+                applyStyles();
+            };
+
+            const fitToWidth = (e) => {
+                e.stopPropagation();
+                fitMode = 'width';
+                currentWidthPercentage = 100; // Reset for consistency
+                applyStyles();
+            };
+
+            const fitToHeight = (e) => {
+                e.stopPropagation();
+                fitMode = 'height';
+                currentWidthPercentage = 100; // Reset for consistency
+                applyStyles();
+            };
+
+            readerContainer.addEventListener('click', (e) => {
+                if (e.target === readerContainer || e.target === imgElement) {
+                    navigate('next');
+                }
+            });
+
+            listButton.addEventListener('click', () => {
+                if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    window.location.href = '/';
+                }
+            });
+
+            zoomInButton.addEventListener('click', zoomIn);
+            zoomOutButton.addEventListener('click', zoomOut);
+            fitWidthButton.addEventListener('click', fitToWidth);
+            fitHeightButton.addEventListener('click', fitToHeight);
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') navigate('prev');
+                if (e.key === 'ArrowRight') navigate('next');
+                if (e.key === 'Escape') window.location.href = '/';
+                if (e.key === '+' || e.key === '=') zoomIn(e);
+                if (e.key === '-') zoomOut(e);
+            });
+
+            fetchImages();
+        });
+    </script>
+</body>
+
+</html>

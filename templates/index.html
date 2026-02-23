@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hitomi Gallery</title>
+    <link rel="stylesheet" href="/static/css/style.css?v={{ version }}">
+</head>
+<body>
+
+    <div id="search-container">
+        <div class="search-row">
+            <input type="text" id="title-search" placeholder="Title...">
+            <input type="text" id="person-search" placeholder="Artist or Group...">
+            <input type="text" id="series-search" placeholder="Series...">
+            <input type="text" id="characters-search" placeholder="Character...">
+        </div>
+        <div class="search-row">
+            <input type="text" id="tags-search" placeholder="Tags (comma-separated)...">
+            <select id="rate-select">
+                <option value="All">All Rates</option>
+                <option value="5">5 Stars</option>
+                <option value="4">4 Stars</option>
+                <option value="3">3 Stars</option>
+                <option value="2">2 Stars</option>
+                <option value="1">1 Star</option>
+            </select>
+            <select id="page-size-select">
+                <option value="20">20 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
+            </select>
+            <select id="sort-select">
+                <option value="DESC">ID Desc</option>
+                <option value="ASC">ID Asc</option>
+                <option value="RANDOM">Random</option>
+            </select>
+            <button id="search-button">Search</button>
+            <button id="update-button">Update DB</button>
+        </div>
+    </div>
+
+    <div id="gallery-container"></div>
+
+    <div id="pagination-container">
+        <button id="prev-page">Previous</button>
+        <span id="page-info">Page 1 of 1</span>
+        <button id="next-page">Next</button>
+    </div>
+
+    <script src="/static/js/app.js?v={{ version }}"></script>
+
+    <!-- Cover Selection Modal -->
+    <div id="cover-modal" class="modal-hidden">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2>Select New Cover</h2>
+            <div id="modal-image-container"></div>
+            <button id="modal-confirm-button">Set as Cover</button>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="info-modal" class="modal-hidden">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2>Gallery Information</h2>
+            <div id="info-modal-content"></div>
+        </div>
+    </div>
+</body>
+</html>
