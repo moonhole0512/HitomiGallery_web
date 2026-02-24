@@ -9,34 +9,68 @@
 <body>
 
     <div id="search-container">
-        <div class="search-row">
-            <input type="text" id="title-search" placeholder="Title...">
-            <input type="text" id="person-search" placeholder="Artist or Group...">
-            <input type="text" id="series-search" placeholder="Series...">
-            <input type="text" id="characters-search" placeholder="Character...">
+        <!-- 메인 검색 필드 -->
+        <div class="search-fields-grid">
+            <div class="input-group">
+                <label>Title</label>
+                <input type="text" id="title-search" placeholder="Enter title...">
+            </div>
+            <div class="input-group">
+                <label>Artist / Group</label>
+                <input type="text" id="person-search" placeholder="Artist or group...">
+            </div>
+            <div class="input-group">
+                <label>Series</label>
+                <input type="text" id="series-search" placeholder="Series name...">
+            </div>
+            <div class="input-group">
+                <label>Characters</label>
+                <input type="text" id="characters-search" placeholder="Character name...">
+            </div>
         </div>
-        <div class="search-row">
-            <input type="text" id="tags-search" placeholder="Tags (comma-separated)...">
-            <select id="rate-select">
-                <option value="All">All Rates</option>
-                <option value="5">5 Stars</option>
-                <option value="4">4 Stars</option>
-                <option value="3">3 Stars</option>
-                <option value="2">2 Stars</option>
-                <option value="1">1 Star</option>
-            </select>
-            <select id="page-size-select">
-                <option value="20">20 per page</option>
-                <option value="50">50 per page</option>
-                <option value="100">100 per page</option>
-            </select>
-            <select id="sort-select">
-                <option value="DESC">ID Desc</option>
-                <option value="ASC">ID Asc</option>
-                <option value="RANDOM">Random</option>
-            </select>
-            <button id="search-button">Search</button>
-            <button id="update-button">Update DB</button>
+
+        <!-- 태그 입력 (넓게) -->
+        <div class="search-row full-width">
+            <div class="input-group">
+                <label>Tags</label>
+                <input type="text" id="tags-search" placeholder="Tags (comma-separated)...">
+            </div>
+        </div>
+
+        <!-- 하단 컨트롤 바 -->
+        <div class="control-bar">
+            <div class="control-group">
+                <select id="rate-select" title="Rating Filter">
+                    <option value="All">All Rates</option>
+                    <option value="5">5 Stars</option>
+                    <option value="4">4 Stars</option>
+                    <option value="3">3 Stars</option>
+                    <option value="2">2 Stars</option>
+                    <option value="1">1 Star</option>
+                </select>
+                <select id="sort-select" title="Sort Order">
+                    <option value="DESC">ID Desc</option>
+                    <option value="ASC">ID Asc</option>
+                    <option value="NEWEST_DB">Newest DB</option>
+                    <option value="OLDEST_DB">Oldest DB</option>
+                    <option value="RANDOM">Random</option>
+                </select>
+                <select id="page-size-select" title="Items per page">
+                    <option value="20">20 / pg</option>
+                    <option value="50">50 / pg</option>
+                    <option value="100">100 / pg</option>
+                </select>
+                <select id="thumb-size-select" title="Thumbnail Size">
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                </select>
+            </div>
+            <div class="button-group">
+                <button id="update-button" class="btn-secondary">Update DB</button>
+                <button id="recommend-button" class="btn-secondary" style="color: #ffc107; border-color: #ffc107;">For You</button>
+                <button id="search-button" class="btn-primary">Search</button>
+            </div>
         </div>
     </div>
 

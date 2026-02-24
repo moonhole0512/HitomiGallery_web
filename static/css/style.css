@@ -1,57 +1,147 @@
 body {
-    font-family: sans-serif;
-    background-color: #222;
-    color: #eee;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #121212;
+    color: #e0e0e0;
     margin: 0;
-    padding: 0;
+    padding: 20px;
 }
 
 #search-container {
-    background-color: #333;
-    padding: 10px;
-    border-radius: 5px;
+    background-color: #1e1e1e;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    border: 1px solid #333;
+}
+
+/* 그리드 레이아웃 */
+.search-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
     margin-bottom: 15px;
 }
 
-.search-row {
+.input-group {
     display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-    position: relative;
+    flex-direction: column;
+    gap: 5px;
 }
 
+.input-group label {
+    font-size: 0.8rem;
+    color: #888;
+    font-weight: 600;
+    margin-left: 2px;
+}
 
-.search-row:last-child {
-    margin-bottom: 0;
+.full-width {
+    margin-bottom: 20px;
 }
 
 input[type='text'], select {
     width: 100%;
-    padding: 8px;
-    border-radius: 3px;
-    border: 1px solid #555;
-    background-color: #444;
-    color: #eee;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background-color: #2a2a2a;
+    color: #fff;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
 }
 
-#tags-search { flex-grow: 1; }
+input[type='text']:focus, select:focus {
+    border-color: #007bff;
+    background-color: #333;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
 
-button {
-    padding: 8px 12px;
-    border: none;
-    border-radius: 3px;
-    background-color: #007bff;
-    color: white;
+/* 컨트롤 바 디자인 */
+.control-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 15px;
+    border-top: 1px solid #333;
+    gap: 20px;
+}
+
+.control-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.control-group select {
+    width: auto;
+    min-width: 110px;
+    background-color: #252525;
     cursor: pointer;
 }
 
-button:hover {
-    background-color: #0056b3;
+.button-group {
+    display: flex;
+    gap: 10px;
 }
+
+/* 버튼 스타일링 */
+button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: #aaa;
+    border: 1px solid #444;
+}
+
+.btn-secondary:hover {
+    color: #fff;
+    border-color: #666;
+    background-color: #333;
+}
+
+#recommend-button:hover {
+    color: #fff !important;
+    border-color: #ffc107 !important;
+    background-color: rgba(255, 193, 7, 0.2) !important;
+}
+
+#gallery-container.small {
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+}
+#gallery-container.medium {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+#gallery-container.large {
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+}
+
+#gallery-container.small .gallery-item img { height: 220px; }
+#gallery-container.medium .gallery-item img { height: 333px; }
+#gallery-container.large .gallery-item img { height: 440px; }
 
 #gallery-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
     gap: 15px;
 }
 
@@ -78,35 +168,59 @@ button:hover {
 
 .gallery-item img {
     width: 100%;
-    height: 220px;
     object-fit: cover;
     display: block;
 }
 
-.delete-btn {
+/* 갤러리 아이템 액션 바 */
+.action-bar {
     position: absolute;
-    top: 5px;
-    right: 5px;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    line-height: 24px;
-    text-align: center;
-    cursor: pointer;
-    font-weight: bold;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 8px;
     opacity: 0;
-    transition: opacity 0.2s;
+    transform: translateY(-5px);
+    transition: all 0.3s ease;
+    z-index: 5;
 }
 
-.gallery-item:hover .delete-btn {
+.gallery-item:hover .action-bar {
     opacity: 1;
+    transform: translateY(0);
 }
 
-.delete-btn:hover {
-    background-color: #dc3545;
+.action-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    transform: scale(1.1);
+    background: rgba(0, 123, 255, 0.8);
+    border-color: #007bff;
+}
+
+.action-btn.delete-btn:hover {
+    background: rgba(220, 53, 69, 0.8);
+    border-color: #dc3545;
+}
+
+.action-btn.info-btn:hover {
+    background: rgba(23, 162, 184, 0.8);
+    border-color: #17a2b8;
 }
 
 .rating-container {
@@ -160,33 +274,6 @@ button:hover {
 /* On star hover, turn all FOLLOWING stars gray again */
 .rating-container .rating-star:hover ~ .rating-star {
     filter: grayscale(100%);
-}
-
-.change-cover-btn {
-    position: absolute;
-    top: 5px;
-    left: 5px;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    line-height: 24px;
-    text-align: center;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: bold;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-
-.gallery-item:hover .change-cover-btn {
-    opacity: 1;
-}
-
-.change-cover-btn:hover {
-    background-color: #007bff;
 }
 
 /* --- Modal Styles --- */
@@ -309,7 +396,7 @@ button:hover {
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; /* Allows clicks to go through to the image */
+    pointer-events: none;
     z-index: 10;
 }
 
@@ -317,72 +404,60 @@ button:hover {
 #top-right-overlay,
 #bottom-right-overlay {
     position: absolute;
-    padding: 10px;
-    pointer-events: all; /* Re-enable pointer events for the controls */
-}
-
-#top-left-overlay {
-    top: 0;
-    left: 0;
-}
-
-#top-right-overlay {
-    top: 0;
-    right: 0;
+    padding: 15px;
+    pointer-events: all;
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    gap: 8px;
 }
 
-#bottom-right-overlay {
-    bottom: 0;
-    right: 0;
-}
+#top-left-overlay { top: 0; left: 0; }
+#top-right-overlay { top: 0; right: 0; }
+#bottom-right-overlay { bottom: 0; right: 0; }
 
 #page-counter {
-    background-color: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 1em;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #reader-ui-overlay button {
-    background-color: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: 1px solid #555;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    color: #eee;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #reader-ui-overlay button:hover {
-    background-color: rgba(0, 123, 255, 0.7);
+    background-color: #007bff;
     border-color: #007bff;
-}
-
-.info-btn {
-    position: absolute;
-    top: 30px; /* Position below the change cover button */
-    left: 5px;
-    background-color: rgba(0, 0, 0, 0.6);
     color: white;
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    line-height: 24px;
-    text-align: center;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: bold;
-    opacity: 0;
-    transition: opacity 0.2s;
+    transform: translateY(-1px);
 }
 
-.gallery-item:hover .info-btn {
-    opacity: 1;
+#list-button {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    padding: 10px 20px !important;
+    border-radius: 25px !important;
 }
 
-.info-btn:hover {
-    background-color: #17a2b8;
+#list-button:hover {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
 }
 
 #info-modal-content {

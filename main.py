@@ -207,9 +207,16 @@ class RateUpdate(BaseModel):
 class CoverUpdate(BaseModel):
     path: str
 
-# -----------------------------------------------------------------------------
-# API Endpoints
-# -----------------------------------------------------------------------------
+@app.on_event("startup")
+async def startup_event():
+    async with aiosqlite.connect(DB_PATH) as db:
+        # reg_date 컬럼 추가 마이그레이션
+        try:
+            await db.execute("ALTER TABLE files ADD COLUMN reg_date DATETIME DEFAULT CURRENT_TIMESTAMP")
+            await db.commit()
+            logger.info("Database migrated: reg_date column added.")
+        except aiosqlite.OperationalError:
+            pass # Already exists
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -272,6 +279,8 @@ async def search_galleries(
 
         if sort == "DESC": query += ' ORDER BY id_hitomi DESC'
         elif sort == "ASC": query += ' ORDER BY id_hitomi ASC'
+        elif sort == "NEWEST_DB": query += ' ORDER BY reg_date DESC'
+        elif sort == "OLDEST_DB": query += ' ORDER BY reg_date ASC'
         elif sort == "RANDOM":
             if seed is not None:
                 query += ' ORDER BY seeded_random(id_hitomi, ?)'
@@ -453,6 +462,71 @@ async def set_cover(id_hitomi: int, item: CoverUpdate):
         raise HTTPException(status_code=404, detail="New cover image not found in zip file.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update cover: {e}")
+
+@app.get("/api/recommend")
+async def recommend_galleries(limit: int = Query(40)):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        
+        # 1. 별점이 있는 데이터 가져오기
+        cursor = await db.execute('SELECT artist, groups_, tags, characters, series, rate FROM files WHERE rate > 0')
+        rated_items = await cursor.fetchall()
+        
+        if not rated_items:
+            return {"galleries": [], "message": "별점을 준 작품이 없어 추천할 수 없습니다."}
+
+        # 2. 취향 분석 (가중치 계산)
+        preferences = {
+            "tags": {}, "artist": {}, "groups_": {}, "characters": {}, "series": {}
+        }
+
+        for item in rated_items:
+            weight = item['rate']
+            for field in preferences.keys():
+                val = item[field]
+                if val:
+                    # 쉼표로 구분된 태그들 처리
+                    parts = [p.strip() for p in val.split(',') if p.strip()]
+                    for part in parts:
+                        preferences[field][part] = preferences[field].get(part, 0) + weight
+
+        # 3. 상위 키워드 추출
+        top_preferences = {}
+        for field, counts in preferences.items():
+            # 점수 순으로 정렬하여 상위 항목 추출
+            sorted_items = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+            # 태그는 상위 15개, 나머지는 상위 5개 정도 사용
+            top_n = 15 if field == "tags" else 5
+            top_preferences[field] = [item[0] for item in sorted_items[:top_n]]
+
+        # 4. 추천 쿼리 생성
+        # 아직 별점을 주지 않은(rate=0) 작품 중에서 상위 키워드를 포함하는 것 검색
+        query = 'SELECT id_hitomi, title, artist, groups_, series, characters, tags, rate FROM files WHERE rate = 0 AND ('
+        conditions = []
+        params = []
+
+        for field, values in top_preferences.items():
+            for val in values:
+                conditions.append(f"{field} LIKE ?")
+                params.append(f"%{val}%")
+
+        if not conditions:
+            return {"galleries": []}
+
+        query += " OR ".join(conditions)
+        query += ') ORDER BY RANDOM() LIMIT ?'
+        params.append(limit)
+
+        cursor = await db.execute(query, tuple(params))
+        results = await cursor.fetchall()
+
+        galleries_data = []
+        for row in results:
+            gallery_dict = dict(row)
+            gallery_dict['person'] = ', '.join(filter(None, [gallery_dict.get('artist'), gallery_dict.get('groups_')]))
+            galleries_data.append(gallery_dict)
+
+        return {"galleries": galleries_data}
 
 # -----------------------------------------------------------------------------
 # Main

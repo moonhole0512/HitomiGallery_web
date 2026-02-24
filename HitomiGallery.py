@@ -18,9 +18,16 @@ import send2trash
 import ctypes
 
 # 전역 변수 설정
+THUMBNAIL_SIZES = {
+    "Small": (165, 220),
+    "Medium": (250, 333),
+    "Large": (330, 440)
+}
+JPG_QUALITY = 90
+
+# 파일 저장 크기는 기존 165x220 유지
 JPG_WIDTH = 165
 JPG_HEIGHT = 220
-JPG_QUALITY = 90
 
 ROOT_DIR = ""
 COVER_DIR = ""
@@ -215,7 +222,15 @@ def create_db():
     c.execute('''CREATE TABLE IF NOT EXISTS files
                  (id_hitomi INTEGER PRIMARY KEY, filename TEXT, path TEXT, 
                  title TEXT, artist TEXT, tags TEXT, groups_ TEXT, 
-                 series TEXT, characters TEXT, language TEXT, rate INTEGER DEFAULT 0)''')
+                 series TEXT, characters TEXT, language TEXT, 
+                 rate INTEGER DEFAULT 0, reg_date DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    
+    # 기존 DB에 reg_date 컬럼이 없는 경우 추가 (마이그레이션)
+    try:
+        c.execute("ALTER TABLE files ADD COLUMN reg_date DATETIME DEFAULT CURRENT_TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass # 이미 컬럼이 존재함
+        
     conn.commit()
     conn.close()
 
@@ -317,18 +332,43 @@ def convert_webp_to_jpg(webp_image_path):
 def update_database(self):
     create_db()
     
+    # DB에서 기존 등록된 파일 목록 가져오기 (메모리 최적화)
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT path, filename FROM files")
+    existing_files = set(c.fetchall())
+    
+    # 커버 이미지 목록 가져오기
+    existing_covers = set(os.listdir(COVER_DIR))
+    
     zip_files = []
-    duplicate_files = []
-    error_files = []
     for root, dirs, files in os.walk(ROOT_DIR):
         for file in files:
             if file.endswith('.zip'):
-                zip_files.append(os.path.join(root, file))
+                zip_files.append((root, file))
     
     total_files = len(zip_files)
+    new_files = []
+    
+    # 신규 파일만 필터링
+    for root, file in zip_files:
+        if (root, file) not in existing_files:
+            new_files.append(os.path.join(root, file))
+    
+    if not new_files:
+        print("모든 파일이 이미 DB에 등록되어 있습니다.")
+        # 커버 이미지가 누락된 경우가 있을 수 있으므로 기존 파일들에 대해서도 커버 체크는 필요할 수 있음
+        # 하지만 속도를 위해 여기서는 신규 파일이 없으면 종료하는 것으로 처리
+        conn.close()
+        return
 
-    for i, full_path in enumerate(zip_files, 1):
-        print(f"{i} / {total_files}")
+    print(f"총 {total_files}개 파일 중 {len(new_files)}개의 신규 파일을 발견했습니다.")
+    
+    duplicate_files = []
+    error_files = []
+    
+    for i, full_path in enumerate(new_files, 1):
+        print(f"Processing {i} / {len(new_files)}")
         
         gal_num = get_substring_by_string(os.path.basename(full_path))
         if gal_num == "0":
@@ -336,28 +376,27 @@ def update_database(self):
             continue
         
         try:
-            if sql_select_count(full_path) == 0:
-                if gal_num != "0":
-                    obj = json_parser(f"https://ltn.gold-usergeneratedcontent.net/galleries/{gal_num}.js")
-                else:
-                    obj = {}
-                
-                if not obj:
-                    obj['title'] = os.path.basename(full_path)
-
-                data = insert_query(obj, full_path)
-                sql_insert(data)
-                time.sleep(0.2)
-                #print(f"[DB]<add> {full_path}")
-            else:
-                #print(f"[DB]<pass> 이미 존재 {full_path}")
-                dummyint = 1
-        except sqlite3.IntegrityError as e: #이미 등록된 경우
+            # 신규 파일 등록
             if gal_num != "0":
-                #duplicate_files.append(str(e) + " : " + full_path + "___(" + gal_num)
-                duplicate_files.append(full_path)
+                obj = json_parser(f"https://ltn.gold-usergeneratedcontent.net/galleries/{gal_num}.js")
             else:
-                error_files.append(str(e) + " : " + full_path + "___(" + gal_num)
+                obj = {}
+            
+            if not obj:
+                obj['title'] = os.path.basename(full_path)
+
+            data = insert_query(obj, full_path)
+            
+            # 여기서 직접 insert (성능을 위해 트랜잭션 내에서 처리)
+            c.execute('''INSERT INTO files(id_hitomi, filename, path, title, artist, 
+                         tags, groups_, series, characters, language) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', data)
+            conn.commit() # 매번 커밋할 수도 있고, n개 단위로 할 수도 있음
+            
+            time.sleep(0.2) # 서버 부하 방지를 위해 유지 (필요시 조정)
+            
+        except sqlite3.IntegrityError as e:
+            duplicate_files.append(full_path)
             continue
         except sqlite3.OperationalError as e:
             if 'database is locked' in str(e):
@@ -368,21 +407,23 @@ def update_database(self):
                 print(f"[DB]<error> DB 처리 중 오류 발생 : {full_path}")
                 print(f"  오류 내용: {e}")
                 continue
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            continue
         
+        # 커버 이미지 처리
         try:
-            cover_path = os.path.join(COVER_DIR, f"{gal_num}.jpg")
-            if not os.path.exists(cover_path):
+            cover_filename = f"{gal_num}.jpg"
+            if cover_filename not in existing_covers:
                 unzip_img(COVER_DIR, full_path)
-                #print("ㄴ[IMG]<add> 커버 이미지")
-            else:
-                #print("ㄴ[IMG]<pass> 커버 이미지")
-                dummyint = 1
+                existing_covers.add(cover_filename) # 새로 추가된 것 반영
         except Exception as e:
             print(f"ㄴ<error> 커버 이미지 처리 중 오류 발생 : {full_path}")
             print(f"  오류 내용: {e}")
+
+    conn.close()
     
-    #print("문제 있었던 파일 리스트")
-    if len(duplicate_files) != 0:  # hitomi id 중복 리스트 체크
+    if len(duplicate_files) != 0:
         duplicateFileDel(self, duplicate_files)
     
     for errors in error_files:
@@ -782,6 +823,16 @@ class HitomiGalleryApp(ctk.CTk):
         self.next_button = ctk.CTkButton(self.third_row, text="Next", width=70,command=self.next_page)
         self.next_button.pack(side="left", padx=5)
 
+        # 썸네일 크기 옵션 추가
+        self.thumb_size_label = ctk.CTkLabel(self.third_row, text="Size:")
+        self.thumb_size_label.pack(side="left", padx=5)
+        initial_thumb_size = self.settings.get('thumbnail_size', 'Small') if self.settings else 'Small'
+        self.thumb_size_var = ctk.StringVar(value=initial_thumb_size)
+        self.thumb_size_dropdown = ctk.CTkOptionMenu(self.third_row, variable=self.thumb_size_var, 
+                                                   values=list(THUMBNAIL_SIZES.keys()), width=80,
+                                                   command=self.update_thumbnail_size)
+        self.thumb_size_dropdown.pack(side="left", padx=5)
+
         # 정렬 옵션 추가
         self.rate_label = ctk.CTkLabel(self.third_row, text="Rate:")
         self.rate_label.pack(side="left", padx=5)
@@ -794,9 +845,9 @@ class HitomiGalleryApp(ctk.CTk):
         
         self.sort_label = ctk.CTkLabel(self.third_row, text="Sort:")
         self.sort_label.pack(side="left", padx=5)
-        self.sort_var = ctk.StringVar(value="DESC")
+        self.sort_var = ctk.StringVar(value="Newest ID")
         self.sort_dropdown = ctk.CTkOptionMenu(self.third_row, variable=self.sort_var, 
-                                            values=["DESC", "ASC", "RANDOM"], width=100,
+                                            values=["Newest ID", "Oldest ID", "Newest DB", "Oldest DB", "RANDOM"], width=120,
                                             command=self.search)
         self.sort_dropdown.pack(side="left", padx=5)
 
@@ -1131,9 +1182,12 @@ class HitomiGalleryApp(ctk.CTk):
     def calculate_columns(self):
         window_width = self.result_frame.winfo_width()
         padding = int(10*self.dpi_scale)  # 이미지 사이의 패딩
-        #columns = max(1, (window_width - padding) // (JPG_WIDTH + padding))
-        columns = max(1, (window_width)//(self.scaled_width + (padding*2)))
-        #print(columns)
+        
+        size_key = self.thumb_size_var.get()
+        thumb_w, _ = THUMBNAIL_SIZES[size_key]
+        scaled_thumb_w = int(thumb_w * self.dpi_scale)
+        
+        columns = max(1, (window_width)//(scaled_thumb_w + (padding*2)))
         return columns
 
     def initialize_dropdowns(self):
@@ -1284,6 +1338,14 @@ class HitomiGalleryApp(ctk.CTk):
         self.update_page_display()
         self.display_results(maintain_scroll=maintain_page)
 
+    def update_thumbnail_size(self, value):
+        if self.settings:
+            self.settings['thumbnail_size'] = value
+            save_settings(self.settings)
+        
+        self.current_columns = self.calculate_columns()
+        self.display_results()
+
     def update_page_size(self, value):
         self.current_page = 1
         self.current_page_var.set("1")
@@ -1328,10 +1390,14 @@ class HitomiGalleryApp(ctk.CTk):
     
         # 정렬 옵션 적용
         sort_option = self.sort_var.get()
-        if sort_option == "DESC":
+        if sort_option == "Newest ID":
             query += ' ORDER BY id_hitomi DESC'
-        elif sort_option == "ASC":
+        elif sort_option == "Oldest ID":
             query += ' ORDER BY id_hitomi ASC'
+        elif sort_option == "Newest DB":
+            query += ' ORDER BY reg_date DESC'
+        elif sort_option == "Oldest DB":
+            query += ' ORDER BY reg_date ASC'
         elif sort_option == "RANDOM":
             query += ' ORDER BY RANDOM()'
     
@@ -1355,23 +1421,27 @@ class HitomiGalleryApp(ctk.CTk):
         end = start + page_size
         page_results = self.results[start:end]
         
+        # 현재 선택된 썸네일 크기 가져오기
+        size_key = self.thumb_size_var.get()
+        target_w, target_h = THUMBNAIL_SIZES[size_key]
+        
         for i, (id_hitomi, title, artist, rate) in enumerate(page_results):
             image_path = os.path.join(COVER_DIR, f"{id_hitomi}.jpg")
             if os.path.exists(image_path):
                 img = Image.open(image_path)
                 try:
-                    img = img.resize((JPG_WIDTH, JPG_HEIGHT))
+                    img = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
                 except Exception as e:
                     print(f"손상된 커버 이미지 파일 : {e}")
                     print("대상 hitomi id - "+str(id_hitomi))
                     img = Image.open("noImage.jpg")
-                    img = img.resize((JPG_WIDTH, JPG_HEIGHT))
-                #img = img.resize((JPG_WIDTH, JPG_HEIGHT))
-                img_with_stars = self.add_rating_stars(img, rate)
+                    img = img.resize((target_w, target_h))
                 
-                photo = ctk.CTkImage(light_image=img_with_stars, dark_image=img_with_stars, size=(JPG_WIDTH, JPG_HEIGHT))
+                img_with_stars = self.add_rating_stars(img, rate, target_h)
                 
-                button = ctk.CTkButton(self.result_frame, image=photo, text="", width=JPG_WIDTH, height=JPG_HEIGHT)
+                photo = ctk.CTkImage(light_image=img_with_stars, dark_image=img_with_stars, size=(target_w, target_h))
+                
+                button = ctk.CTkButton(self.result_frame, image=photo, text="", width=target_w, height=target_h)
                 button.image = photo  # 참조 유지
                 button.grid(row=i // self.current_columns, column=i % self.current_columns, padx=5, pady=5)
                 button.bind("<Double-Button-1>", lambda e, id=id_hitomi: self.open_image_viewer(id))
@@ -1381,11 +1451,11 @@ class HitomiGalleryApp(ctk.CTk):
 
         self.update_page_display()
 
-    def add_rating_stars(self, img, rate):
+    def add_rating_stars(self, img, rate, img_height):
         img_with_stars = img.copy()
         draw = ImageDraw.Draw(img_with_stars)
         for i in range(rate):
-            star_position = (i * 22, img.height - 22)  # Adjust position as needed
+            star_position = (i * 22, img_height - 22)  # Adjust position as needed
             img_with_stars.paste(self.star_image, star_position, self.star_image)
         return img_with_stars
 

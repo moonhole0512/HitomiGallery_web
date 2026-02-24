@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextButton = document.getElementById('next-page');
     const searchButton = document.getElementById('search-button');
     const updateButton = document.getElementById('update-button');
+    const recommendButton = document.getElementById('recommend-button');
 
     // Modal elements
     const modal = document.getElementById('cover-modal');
@@ -27,12 +28,27 @@ document.addEventListener('DOMContentLoaded', () => {
         tags: document.getElementById('tags-search'),
         rate: document.getElementById('rate-select'),
         pageSize: document.getElementById('page-size-select'),
+        thumbSize: document.getElementById('thumb-size-select'),
         sort: document.getElementById('sort-select'),
     };
 
     let currentPage = 1;
     let currentSeed = null;
     let currentCoverChange = { id: null, path: null };
+
+    const updateThumbSize = () => {
+        const size = searchInputs.thumbSize.value;
+        galleryContainer.classList.remove('small', 'medium', 'large');
+        galleryContainer.classList.add(size);
+        localStorage.setItem('thumbSize', size);
+    };
+
+    searchInputs.thumbSize.addEventListener('change', updateThumbSize);
+
+    // Load thumb size from localStorage
+    const savedThumbSize = localStorage.getItem('thumbSize') || 'small';
+    searchInputs.thumbSize.value = savedThumbSize;
+    updateThumbSize();
 
     const saveSearchState = () => {
         const state = {
@@ -46,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tags: searchInputs.tags.value,
                 rate: searchInputs.rate.value,
                 pageSize: searchInputs.pageSize.value,
+                thumbSize: searchInputs.thumbSize.value,
                 sort: searchInputs.sort.value,
             }
         };
@@ -121,8 +138,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
             item.appendChild(link);
 
+            // 액션 바 생성
+            const actionBar = document.createElement('div');
+            actionBar.className = 'action-bar';
+
+            const infoBtn = document.createElement('button');
+            infoBtn.className = 'action-btn info-btn';
+            infoBtn.innerHTML = 'i';
+            infoBtn.title = 'Show Info';
+            infoBtn.onclick = (e) => {
+                e.stopPropagation(); e.preventDefault();
+                openInfoModal(gallery);
+            };
+            actionBar.appendChild(infoBtn);
+
+            const changeCoverBtn = document.createElement('button');
+            changeCoverBtn.className = 'action-btn change-cover-btn';
+            changeCoverBtn.innerHTML = '&#128444;';
+            changeCoverBtn.title = 'Change Cover';
+            changeCoverBtn.onclick = (e) => {
+                e.stopPropagation(); e.preventDefault();
+                openCoverModal(gallery.id_hitomi);
+            };
+            actionBar.appendChild(changeCoverBtn);
+
             const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'delete-btn';
+            deleteBtn.className = 'action-btn delete-btn';
             deleteBtn.innerHTML = '&times;';
             deleteBtn.title = 'Delete';
             deleteBtn.onclick = (e) => {
@@ -131,28 +172,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     deleteItem(gallery.id_hitomi);
                 }
             };
-            item.appendChild(deleteBtn);
+            actionBar.appendChild(deleteBtn);
 
-            const changeCoverBtn = document.createElement('button');
-            changeCoverBtn.className = 'change-cover-btn';
-            changeCoverBtn.innerHTML = '&#128444;'; // Frame with picture icon
-            changeCoverBtn.title = 'Change Cover';
-            changeCoverBtn.onclick = (e) => {
-                e.stopPropagation(); e.preventDefault();
-                openCoverModal(gallery.id_hitomi);
-            };
-            item.appendChild(changeCoverBtn);
-
-            const infoBtn = document.createElement('button');
-            infoBtn.className = 'info-btn';
-            infoBtn.innerHTML = 'i'; // Info icon
-            infoBtn.title = 'Show Info';
-            infoBtn.onclick = (e) => {
-                e.stopPropagation(); e.preventDefault();
-                openInfoModal(gallery);
-            };
-            item.appendChild(infoBtn);
-
+            item.appendChild(actionBar);
 
             const ratingContainer = document.createElement('div');
             ratingContainer.className = 'rating-container';
@@ -333,6 +355,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    recommendButton.addEventListener('click', async () => {
+        galleryContainer.innerHTML = '<p>Analysing your taste and finding best matches...</p>';
+        recommendButton.disabled = true;
+        try {
+            const response = await fetch('/api/recommend?limit=40');
+            if (!response.ok) throw new Error('Failed to fetch recommendations.');
+            const data = await response.json();
+            
+            if (data.message) {
+                alert(data.message);
+                fetchGalleries(); // Fallback to normal search
+                return;
+            }
+
+            renderGalleries(data.galleries);
+            pageInfo.textContent = 'Personalized Recommendations';
+            prevButton.disabled = true;
+            nextButton.disabled = true;
+        } catch (error) {
+            console.error('Recommendation error:', error);
+            alert('Failed to get recommendations.');
+        } finally {
+            recommendButton.disabled = false;
+        }
+    });
+
     prevButton.addEventListener('click', () => { if (currentPage > 1) { currentPage--; fetchGalleries(); } });
     nextButton.addEventListener('click', () => { currentPage++; fetchGalleries(); });
     searchButton.addEventListener('click', () => { currentPage = 1; currentSeed = null; fetchGalleries(); });
@@ -369,6 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         searchInputs[key].value = state.searchParams[key];
                     }
                 }
+                updateThumbSize();
             }
         } catch (e) {
             console.error('Failed to parse saved state:', e);
