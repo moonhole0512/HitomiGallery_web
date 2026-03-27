@@ -123,8 +123,8 @@ async def sql_insert(db, data):
     try:
         await db.execute(
             '''INSERT INTO files(id_hitomi, filename, path, title, artist,
-                             tags, groups_, series, characters, language)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', data)
+                             tags, groups_, series, characters, language, reg_date)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)''', data)
         await db.commit()
     except aiosqlite.Error as e:
         logger.error(f"Database error during insert: {e}")
@@ -212,7 +212,8 @@ async def startup_event():
     async with aiosqlite.connect(DB_PATH) as db:
         # reg_date 컬럼 추가 마이그레이션
         try:
-            await db.execute("ALTER TABLE files ADD COLUMN reg_date DATETIME DEFAULT CURRENT_TIMESTAMP")
+            await db.execute("ALTER TABLE files ADD COLUMN reg_date DATETIME")
+            await db.execute("UPDATE files SET reg_date = CURRENT_TIMESTAMP WHERE reg_date IS NULL")
             await db.commit()
             logger.info("Database migrated: reg_date column added.")
         except aiosqlite.OperationalError:
@@ -234,7 +235,8 @@ async def search_galleries(
     series: str = Query(None), rate: str = Query("All"),
     characters: str = Query(None), sort: str = Query("DESC"), page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1),
-    seed: float = Query(None)
+    seed: float = Query(None),
+    uncensored_only: bool = Query(False)
 ):
     async with aiosqlite.connect(DB_PATH) as db:
         if seed is not None:
@@ -271,6 +273,9 @@ async def search_galleries(
         if rate != "All" and rate.isdigit():
             query += ' AND rate = ?'
             params.append(int(rate))
+        if uncensored_only:
+            query += " AND (title LIKE ? OR title LIKE ? OR tags LIKE ?)"
+            params.extend(["%uncensored%", "%decensored%", "%uncensored%"])
 
         count_query = query.replace("SELECT id_hitomi, title, artist, groups_, series, characters, tags, rate", "SELECT COUNT(*)")
         cursor = await db.execute(count_query, tuple(params))
@@ -390,12 +395,12 @@ async def delete_gallery_item(id_hitomi: int):
 @app.get("/api/galleries/{id_hitomi}/images")
 async def get_zip_images(id_hitomi: int):
     async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute('SELECT path, filename FROM files WHERE id_hitomi = ?', (id_hitomi,))
+        cursor = await db.execute('SELECT path, filename, rate, title, artist, series, groups_ FROM files WHERE id_hitomi = ?', (id_hitomi,))
         result = await cursor.fetchone()
         if not result:
             raise HTTPException(status_code=404, detail="Item not found.")
 
-    path, filename = result
+    path, filename, rate, title, artist, series, groups = result
     full_path = os.path.join(path, filename)
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="Zip file not found.")
@@ -403,7 +408,14 @@ async def get_zip_images(id_hitomi: int):
     with zipfile.ZipFile(full_path, 'r') as zip_ref:
         image_files = sorted([f for f in zip_ref.namelist() if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp'))])
     
-    return JSONResponse(content={"images": image_files})
+    return JSONResponse(content={
+        "images": image_files, 
+        "rate": rate,
+        "title": title,
+        "artist": artist,
+        "series": series,
+        "groups": groups
+    })
 
 @app.get("/api/galleries/{id_hitomi}/image")
 async def get_image_from_zip(id_hitomi: int, path: str = Query(...)):
@@ -464,7 +476,7 @@ async def set_cover(id_hitomi: int, item: CoverUpdate):
         raise HTTPException(status_code=500, detail=f"Failed to update cover: {e}")
 
 @app.get("/api/recommend")
-async def recommend_galleries(limit: int = Query(40)):
+async def recommend_galleries(limit: int = Query(40), uncensored_only: bool = Query(False)):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         
@@ -514,7 +526,13 @@ async def recommend_galleries(limit: int = Query(40)):
             return {"galleries": []}
 
         query += " OR ".join(conditions)
-        query += ') ORDER BY RANDOM() LIMIT ?'
+        query += ')'
+        
+        if uncensored_only:
+            query += " AND (title LIKE ? OR title LIKE ? OR tags LIKE ?)"
+            params.extend(["%uncensored%", "%decensored%", "%uncensored%"])
+            
+        query += ' ORDER BY RANDOM() LIMIT ?'
         params.append(limit)
 
         cursor = await db.execute(query, tuple(params))

@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pageSize: document.getElementById('page-size-select'),
         thumbSize: document.getElementById('thumb-size-select'),
         sort: document.getElementById('sort-select'),
+        uncensoredOnly: document.getElementById('uncensored-only'),
     };
 
     let currentPage = 1;
@@ -64,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pageSize: searchInputs.pageSize.value,
                 thumbSize: searchInputs.thumbSize.value,
                 sort: searchInputs.sort.value,
+                uncensoredOnly: searchInputs.uncensoredOnly.checked,
             }
         };
         sessionStorage.setItem('galleryState', JSON.stringify(state));
@@ -85,7 +87,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const key in searchInputs) {
             const input = searchInputs[key];
-            if (input.value && input.value.trim() !== '') {
+            if (input.type === 'checkbox') {
+                if (input.checked) {
+                    const apiKey = key === 'uncensoredOnly' ? 'uncensored_only' : key;
+                    query += `&${apiKey}=true`;
+                }
+            } else if (input.value && input.value.trim() !== '') {
                 // Special handling for page size to use 'page_size' as the query parameter name
                 if (key === 'pageSize') {
                     query += `&page_size=${encodeURIComponent(input.value.trim())}`;
@@ -137,6 +144,17 @@ document.addEventListener('DOMContentLoaded', () => {
             link.appendChild(title);
 
             item.appendChild(link);
+
+            // Uncensored / Decensored Badge
+            const isUncensored = (gallery.title && (gallery.title.toLowerCase().includes('decensored') || gallery.title.toLowerCase().includes('uncensored'))) ||
+                                 (gallery.tags && gallery.tags.toLowerCase().includes('uncensored'));
+            
+            if (isUncensored) {
+                const badge = document.createElement('div');
+                badge.className = 'uncensored-badge';
+                badge.textContent = 'UNCENSORED';
+                item.appendChild(badge);
+            }
 
             // 액션 바 생성
             const actionBar = document.createElement('div');
@@ -359,7 +377,9 @@ document.addEventListener('DOMContentLoaded', () => {
         galleryContainer.innerHTML = '<p>Analysing your taste and finding best matches...</p>';
         recommendButton.disabled = true;
         try {
-            const response = await fetch('/api/recommend?limit=40');
+            const isUncensoredOnly = searchInputs.uncensoredOnly.checked;
+            const query = `limit=40${isUncensoredOnly ? '&uncensored_only=true' : ''}`;
+            const response = await fetch(`/api/recommend?${query}`);
             if (!response.ok) throw new Error('Failed to fetch recommendations.');
             const data = await response.json();
             
@@ -385,7 +405,9 @@ document.addEventListener('DOMContentLoaded', () => {
     nextButton.addEventListener('click', () => { currentPage++; fetchGalleries(); });
     searchButton.addEventListener('click', () => { currentPage = 1; currentSeed = null; fetchGalleries(); });
     Object.values(searchInputs).forEach(input => {
-        if (input.tagName === 'INPUT') {
+        if (input.type === 'checkbox') {
+            input.addEventListener('change', () => { currentPage = 1; currentSeed = null; fetchGalleries(); });
+        } else if (input.tagName === 'INPUT') {
             input.addEventListener('keyup', (event) => {
                 if (event.key === 'Enter') { currentPage = 1; currentSeed = null; fetchGalleries(); }
             });
@@ -414,7 +436,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.searchParams) {
                 for (const key in state.searchParams) {
                     if (searchInputs[key]) {
-                        searchInputs[key].value = state.searchParams[key];
+                        if (searchInputs[key].type === 'checkbox') {
+                            searchInputs[key].checked = state.searchParams[key];
+                        } else {
+                            searchInputs[key].value = state.searchParams[key];
+                        }
                     }
                 }
                 updateThumbSize();

@@ -172,6 +172,25 @@ button {
     display: block;
 }
 
+.uncensored-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(220, 53, 69, 0.9);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    z-index: 4;
+    text-transform: uppercase;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    pointer-events: none;
+    border: 1px solid rgba(255,255,255,0.2);
+    letter-spacing: 0.5px;
+    backdrop-filter: blur(4px);
+}
+
 /* 갤러리 아이템 액션 바 */
 .action-bar {
     position: absolute;
@@ -223,7 +242,7 @@ button {
     border-color: #17a2b8;
 }
 
-.rating-container {
+.gallery-item .rating-container {
     position: absolute;
     bottom: 30px; /* Adjust based on title height */
     left: 0;
@@ -252,28 +271,27 @@ button {
 .rating-star {
     width: 20px;
     height: 20px;
-    background-image: url('/static/ratestar.png');
-    background-size: cover;
+    background-color: #555;
     cursor: pointer;
-    filter: grayscale(100%);
-    transition: filter 0.1s;
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    transition: background-color 0.1s;
 }
 
 /* Make rated stars yellow */
 .rating-star.rated {
-    filter: grayscale(0%);
+    background-color: #ffc107;
 }
 
 /* --- Interactive Hover Effect --- */
 
 /* On container hover, turn all stars yellow */
 .rating-container:hover .rating-star {
-    filter: grayscale(0%);
+    background-color: #ffc107;
 }
 
 /* On star hover, turn all FOLLOWING stars gray again */
 .rating-container .rating-star:hover ~ .rating-star {
-    filter: grayscale(100%);
+    background-color: #555;
 }
 
 /* --- Modal Styles --- */
@@ -374,8 +392,8 @@ button {
 .star {
     width: 20px;
     height: 20px;
-    background-image: url('/static/ratestar.png');
-    background-size: cover;
+    background-color: #ffc107;
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
 }
 
 #pagination-container {
@@ -410,7 +428,21 @@ button {
     gap: 8px;
 }
 
-#top-left-overlay { top: 0; left: 0; }
+#top-left-overlay {
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+#reader-rating-container {
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    padding: 4px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
 #top-right-overlay { top: 0; right: 0; }
 #bottom-right-overlay { bottom: 0; right: 0; }
 
@@ -474,5 +506,29 @@ button {
 
 #info-modal-content strong {
     color: #007bff;
+}
+
+/* Custom Scrollbar for Dark Theme */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #121212;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #444;
+}
+
+/* For Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #333 #121212;
 }
 

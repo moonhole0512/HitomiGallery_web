@@ -7,13 +7,24 @@
     <title>Reader</title>
     <link rel="stylesheet" href="/static/css/style.css?v={{ version }}">
     <style>
+        :root {
+            --overlay-bg: rgba(10, 10, 10, 0.8);
+            --accent-color: #ffc107;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --header-height: 64px;
+            --footer-height: 54px;
+        }
+
         body {
             display: flex;
             flex-direction: column;
             height: 100vh;
-            background-color: #111;
+            background-color: #050505;
             margin: 0;
             overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #eee;
         }
 
         #reader-container {
@@ -21,37 +32,434 @@
             display: flex;
             justify-content: center;
             overflow: auto;
+            cursor: pointer;
+            position: relative;
         }
 
         #reader-img {
             object-fit: contain;
-            transition: width 0.2s ease-in-out, height 0.2s ease-in-out;
-            /* Transition for width/height */
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             height: auto;
             width: auto;
             margin: auto;
+            display: block;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+
+        /* Unified UI Overlays */
+        .reader-ui {
+            position: fixed;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.3s ease;
+            backdrop-filter: blur(15px) saturate(180%);
+            background-color: var(--overlay-bg);
+            border-color: var(--glass-border);
+            border-style: solid;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+
+        #reader-header {
+            top: 0;
+            height: var(--header-height);
+            border-width: 0 0 1px 0;
+            justify-content: space-between;
+        }
+
+        #reader-footer {
+            bottom: 0;
+            height: var(--footer-height);
+            border-width: 1px 0 0 0;
+            justify-content: center;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .ui-hidden {
+            opacity: 0;
+        }
+        #reader-header.ui-hidden { transform: translateY(-100%); }
+        #reader-footer.ui-hidden { transform: translateY(100%); }
+
+        /* Header Elements */
+        .info-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #gallery-title {
+            font-size: 1rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        #gallery-title:hover { color: var(--accent-color); }
+
+        .meta-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+        #gallery-artist {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        #gallery-artist:hover { color: #eee; text-decoration: underline; }
+
+        #series-badge {
+            background: rgba(255, 193, 7, 0.15);
+            color: var(--accent-color);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #series-badge:hover { background: rgba(255, 193, 7, 0.25); }
+
+        /* Star Rating in Header */
+        .header-rating {
+            display: flex;
+            gap: 4px;
+            margin-left: 15px;
+        }
+        .star {
+            font-size: 1.3rem;
+            color: rgba(255,255,255,0.15);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            line-height: 1;
+        }
+        .star.active { 
+            color: var(--accent-color); 
+            text-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+        }
+        .star:hover { transform: scale(1.2); color: white; }
+
+        /* Footer Elements */
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .footer-center {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .page-indicator {
+            font-size: 0.9rem;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            color: #ccc;
+        }
+
+        /* Glass Buttons */
+        .glass-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .glass-btn:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+        .glass-btn:active { transform: translateY(0); }
+        .glass-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); }
+
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        /* Navigation Overlays */
+        .nav-zone {
+            position: fixed;
+            top: 0;
+            height: 100%;
+            width: 20%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        .nav-zone:hover { opacity: 1; }
+        .nav-zone.prev { left: 0; background: linear-gradient(to right, rgba(0,0,0,0.3), transparent); }
+        .nav-zone.next { right: 0; background: linear-gradient(to left, rgba(0,0,0,0.3), transparent); }
+        
+        .nav-hint {
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Exit Button specialization */
+        #exit-btn {
+            background: rgba(255, 255, 255, 0.05);
+            color: #ff4d4d;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        #exit-btn:hover { background: #ff4d4d; color: white; border-color: #ff4d4d; box-shadow: 0 0 15px rgba(255, 77, 77, 0.3); }
+
+        /* Drawer Overlay fix */
+        #drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.6);
+            z-index: 150;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Related Works Drawer */
+        #related-panel {
+            position: fixed;
+            top: 0;
+            right: -320px; /* Changed to right for better standard */
+            width: 320px;
+            height: 100vh;
+            background-color: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid var(--glass-border);
+            z-index: 200;
+            transition: right 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            display: flex;
+            flex-direction: column;
+            color: white;
+            box-shadow: -10px 0 40px rgba(0,0,0,0.8);
+        }
+
+        #related-panel.open {
+            right: 0;
+        }
+
+        .drawer-header {
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .drawer-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--accent-color);
+        }
+
+        #related-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .related-item {
+            display: flex;
+            gap: 12px;
+            background-color: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 8px;
+            text-decoration: none;
+            color: white;
+            transition: background-color 0.2s, border-color 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .related-item:hover {
+            background-color: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        .related-item.current {
+            background-color: rgba(255, 193, 7, 0.15);
+            border-color: rgba(255, 193, 7, 0.3);
+        }
+
+        .related-thumb {
+            width: 60px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        .related-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .related-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.3;
+        }
+
+        .related-meta {
+            font-size: 0.75rem;
+            color: #999;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .drawer-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.8rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        #drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            z-index: 90;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #drawer-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
         }
     </style>
 </head>
 
 <body>
-    <div id="reader-ui-overlay">
-        <div id="top-left-overlay">
-            <div id="page-counter">1 / 1</div>
+    <div id="drawer-overlay"></div>
+
+    <div id="reader-header" class="reader-ui">
+        <div class="info-section">
+            <div id="gallery-title">Loading Title...</div>
+            <div class="meta-row">
+                <span id="gallery-artist">Artist</span>
+                <span id="series-badge" title="Open Related Works">Series</span>
+            </div>
         </div>
-        <div id="top-right-overlay">
-            <button id="zoom-out-button" title="Zoom Out">➖</button>
-            <button id="zoom-in-button" title="Zoom In">➕</button>
-            <button id="fit-width-button" title="Fit to Width">↔ 가로</button>
-            <button id="fit-height-button" title="Fit to Height">↕ 세로</button>
+        <div class="header-rating" id="reader-rating-container">
+            <!-- Stars -->
         </div>
-        <div id="bottom-right-overlay">
-            <button id="list-button" title="Go to List">Exit</button>
+    </div>
+
+    <div id="reader-footer" class="reader-ui">
+        <!-- Left Aligned Exit Button -->
+        <div style="width: 120px; display: flex; align-items: center;">
+            <button id="exit-btn" class="glass-btn" style="background: rgba(255, 255, 255, 0.05); color: #ff4d4d;" title="Exit Reader">✕ Close</button>
+        </div>
+        
+        <!-- Centered Controls -->
+        <div class="footer-center" style="flex: 1; justify-content: center;">
+            <div class="control-group">
+                <button id="fit-width-button" class="glass-btn" title="Fit to Width">↔ Width</button>
+                <button id="fit-height-button" class="glass-btn" title="Fit to Height">↕ Height</button>
+            </div>
+            <div class="control-group" style="background: rgba(255,255,255,0.03); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--glass-border);">
+                <button id="zoom-out-button" class="glass-btn icon-btn" style="border:none; background:transparent;" title="Zoom Out">➖</button>
+                <div id="page-counter" class="page-indicator">1 / 1</div>
+                <button id="zoom-in-button" class="glass-btn icon-btn" style="border:none; background:transparent;" title="Zoom In">➕</button>
+            </div>
+        </div>
+        
+        <!-- Right Spacer for Balance -->
+        <div style="width: 120px;"></div>
+    </div>
+
+    <div class="nav-zone prev" id="nav-prev">
+        <div class="nav-hint">‹</div>
+    </div>
+    <div class="nav-zone next" id="nav-next">
+        <div class="nav-hint">›</div>
+    </div>
+
+    <div id="related-panel">
+        <div class="drawer-header">
+            <h3 id="drawer-title">Related Works</h3>
+            <button id="close-related" class="drawer-close">&times;</button>
+        </div>
+        <div id="related-list">
+            <!-- Related items will be injected by JS -->
         </div>
     </div>
 
     <div id="reader-container">
         <img id="reader-img" src="" alt="Loading image...">
+    </div>
+
+    <!-- Next Volume Prompt Modal -->
+    <div id="next-vol-modal" class="modal-hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); opacity: 0; pointer-events: none; transition: opacity 0.4s; backdrop-filter: blur(10px);">
+        <div style="background: var(--overlay-bg); padding: 30px; border-radius: 20px; border: 1px solid var(--glass-border); width: 360px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.8); backdrop-filter: blur(20px);">
+            <div style="font-size: 3rem; margin-bottom: 20px; color: var(--accent-color);">📚</div>
+            <h3 style="margin: 0 0 12px 0; color: white; font-size: 1.2rem; font-weight: 700;">다음 권 읽기</h3>
+            <p id="next-vol-text" style="color: #aaa; font-size: 0.95rem; margin-bottom: 30px; line-height: 1.5;">시리즈의 다음 작품인 <br><strong style="color: #eee;">"..."</strong> 작품을 이어서 보시겠습니까?</p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button id="next-vol-cancel" class="glass-btn" style="flex: 1; justify-content: center;">나중에</button>
+                <button id="next-vol-confirm" class="glass-btn" style="flex: 1; background-color: var(--accent-color); color: #000; font-weight: 700; border: none; justify-content: center;">지금 읽기</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -63,17 +471,67 @@
             const zoomOutButton = document.getElementById('zoom-out-button');
             const fitWidthButton = document.getElementById('fit-width-button');
             const fitHeightButton = document.getElementById('fit-height-button');
-            const listButton = document.getElementById('list-button');
+            const exitBtn = document.getElementById('exit-btn');
+            const ratingContainer = document.getElementById('reader-rating-container');
+            const seriesBadge = document.getElementById('series-badge');
+            const relatedPanel = document.getElementById('related-panel');
+            const relatedList = document.getElementById('related-list');
+            const closeRelated = document.getElementById('close-related');
+            const drawerOverlay = document.getElementById('drawer-overlay');
+            const readerHeader = document.getElementById('reader-header');
+            const readerFooter = document.getElementById('reader-footer');
+            const galleryTitle = document.getElementById('gallery-title');
+            const galleryArtist = document.getElementById('gallery-artist');
+
+            const navPrev = document.getElementById('nav-prev');
+            const navNext = document.getElementById('nav-next');
+            
+            const nextVolModal = document.getElementById('next-vol-modal');
+            const nextVolText = document.getElementById('next-vol-text');
+            const nextVolConfirm = document.getElementById('next-vol-confirm');
+            const nextVolCancel = document.getElementById('next-vol-cancel');
+
             const idHitomi = Number("{{ id_hitomi }}");
             let images = [];
             let currentIndex = 0;
-            let currentWidthPercentage = 100; // Initial width in percentage
-            let fitMode = 'width'; // 'width', 'height', 'zoom' - Default to fit width
+            let currentWidthPercentage = 100;
+            let fitMode = 'width';
+            let currentRate = 0;
+            let galleryMetadata = {};
+            let uiHideTimer = null;
+            let relatedWorks = [];
+
+            // UI Auto-hide logic
+            const showUI = () => {
+                readerHeader.classList.remove('ui-hidden');
+                readerFooter.classList.remove('ui-hidden');
+                resetHideTimer();
+            };
+
+            const hideUI = () => {
+                if (relatedPanel.classList.contains('open')) return;
+                readerHeader.classList.add('ui-hidden');
+                readerFooter.classList.add('ui-hidden');
+            };
+
+            const resetHideTimer = () => {
+                clearTimeout(uiHideTimer);
+                if (relatedPanel.classList.contains('open')) return;
+                uiHideTimer = setTimeout(hideUI, 3000);
+            };
+
+            document.addEventListener('mousemove', (e) => {
+                if (e.clientY < 100 || e.clientY > window.innerHeight - 100) {
+                    showUI();
+                } else {
+                    resetHideTimer();
+                }
+            });
+            document.addEventListener('click', showUI);
 
             const savedFitMode = localStorage.getItem('readerFitMode');
-            if (savedFitMode) {
-                fitMode = savedFitMode;
-            }
+            if (savedFitMode) fitMode = savedFitMode;
+            
             const savedWidthPercentage = localStorage.getItem('readerWidthPercentage');
             if (savedWidthPercentage && fitMode === 'zoom') {
                 currentWidthPercentage = parseInt(savedWidthPercentage);
@@ -84,127 +542,215 @@
                     const response = await fetch(`/api/galleries/${idHitomi}/images`);
                     const data = await response.json();
                     images = data.images;
+                    currentRate = data.rate || 0;
+                    galleryMetadata = {
+                        title: data.title,
+                        artist: data.artist || data.groups || 'Unknown Artist',
+                        series: data.series || 'No Series'
+                    };
+                    
+                    galleryTitle.textContent = galleryMetadata.title;
+                    galleryArtist.textContent = galleryMetadata.artist;
+                    if (galleryMetadata.series && galleryMetadata.series !== 'No Series') {
+                        seriesBadge.textContent = galleryMetadata.series;
+                        seriesBadge.style.display = 'inline-block';
+                    } else {
+                        seriesBadge.textContent = 'Related';
+                        seriesBadge.style.display = 'inline-block';
+                        seriesBadge.style.opacity = '0.7';
+                    }
+
+                    initRatingUI(currentRate);
+                    fetchRelated(); 
                     if (images.length > 0) {
                         loadImage();
                     } else {
-                        console.error('No images found in gallery.');
-                        imgElement.alt = 'No images found in this gallery.';
+                        imgElement.alt = 'No images found.';
                         pageCounter.textContent = '0 / 0';
                     }
                 } catch (error) {
-                    console.error('Failed to fetch image list:', error);
-                    imgElement.alt = 'Failed to load image list.';
+                    console.error('Failed to fetch:', error);
                 }
+            };
+
+            const openDrawer = () => {
+                relatedPanel.classList.add('open');
+                drawerOverlay.classList.add('visible');
+                showUI();
+                clearTimeout(uiHideTimer);
+                fetchRelated();
+            };
+
+            const closeDrawer = () => {
+                relatedPanel.classList.remove('open');
+                drawerOverlay.classList.remove('visible');
+                resetHideTimer();
+            };
+
+            const fetchRelated = async () => {
+                if (relatedList.children.length > 2 && relatedWorks.length > 0) return; 
+                relatedList.innerHTML = '<p style="font-size: 0.8rem; text-align: center; color: #666; padding: 20px;">Searching series...</p>';
+                
+                try {
+                    const primaryArtist = (galleryMetadata.artist || "").split(',')[0].trim();
+                    let results = [];
+                    let seenIds = new Set();
+                    results.push({ id_hitomi: idHitomi, title: galleryMetadata.title, person: galleryMetadata.artist });
+                    seenIds.add(idHitomi);
+
+                    const addResults = (items) => {
+                        if (!items) return;
+                        items.forEach(item => {
+                            if (item.id_hitomi && !seenIds.has(item.id_hitomi)) {
+                                results.push(item);
+                                seenIds.add(item.id_hitomi);
+                            }
+                        });
+                    };
+
+                    if (primaryArtist) {
+                        const resp = await fetch(`/api/galleries?person=${encodeURIComponent(primaryArtist)}&page_size=30`);
+                        const data = await resp.json();
+                        addResults(data.galleries);
+                    }
+
+                    if (galleryMetadata.series && galleryMetadata.series !== 'No Series') {
+                        const resp = await fetch(`/api/galleries?series=${encodeURIComponent(galleryMetadata.series)}&page_size=30`);
+                        const data = await resp.json();
+                        addResults(data.galleries);
+                    }
+
+                    results.sort((a, b) => a.title.localeCompare(b.title));
+                    relatedWorks = results;
+                    renderRelatedItems(results);
+                } catch (e) { console.error(e); }
+            };
+
+            const renderRelatedItems = (items) => {
+                relatedList.innerHTML = '';
+                items.forEach(item => {
+                    const el = document.createElement('a');
+                    el.className = 'related-item' + (item.id_hitomi === idHitomi ? ' current' : '');
+                    el.href = `/reader/${item.id_hitomi}`;
+                    el.innerHTML = `
+                        <img class="related-thumb" src="/cover/${item.id_hitomi}.jpg" onerror="this.src='/static/noImage.jpg'">
+                        <div class="related-info">
+                            <div class="related-title">${item.title}</div>
+                            <div class="related-meta">${item.person || ''}</div>
+                        </div>
+                    `;
+                    relatedList.appendChild(el);
+                });
+            };
+
+            seriesBadge.addEventListener('click', (e) => { e.stopPropagation(); openDrawer(); });
+            galleryTitle.addEventListener('click', (e) => { e.stopPropagation(); openDrawer(); });
+            galleryArtist.addEventListener('click', (e) => { e.stopPropagation(); openDrawer(); });
+            closeRelated.addEventListener('click', closeDrawer);
+            drawerOverlay.addEventListener('click', closeDrawer);
+
+            const initRatingUI = (rate) => {
+                ratingContainer.innerHTML = '';
+                for (let i = 1; i <= 5; i++) {
+                    const star = document.createElement('span');
+                    star.className = 'star' + (i <= rate ? ' active' : '');
+                    star.innerHTML = '✦';
+                    star.dataset.rate = i;
+                    star.onmouseenter = () => {
+                        const stars = ratingContainer.querySelectorAll('.star');
+                        stars.forEach((s, idx) => s.classList.toggle('active', idx < i));
+                    };
+                    star.onmouseleave = () => {
+                        const stars = ratingContainer.querySelectorAll('.star');
+                        stars.forEach((s, idx) => s.classList.toggle('active', idx < currentRate));
+                    };
+                    star.onclick = (e) => {
+                        e.stopPropagation();
+                        const newRate = (currentRate === i) ? 0 : i;
+                        setRating(newRate);
+                    };
+                    ratingContainer.appendChild(star);
+                }
+            };
+
+            const setRating = async (newRate) => {
+                currentRate = newRate;
+                initRatingUI(currentRate);
+                try {
+                    await fetch(`/api/galleries/${idHitomi}/rate`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rate: newRate })
+                    });
+                } catch (e) {}
             };
 
             const loadImage = () => {
                 if (images.length === 0) return;
-                const imagePath = images[currentIndex];
-                imgElement.src = `/api/galleries/${idHitomi}/image?path=${encodeURIComponent(imagePath)}`;
+                imgElement.src = `/api/galleries/${idHitomi}/image?path=${encodeURIComponent(images[currentIndex])}`;
                 pageCounter.textContent = `${currentIndex + 1} / ${images.length}`;
             };
 
-            imgElement.onload = () => {
-                applyStyles();
-                readerContainer.scrollTo(0, 0);
-            };
+            imgElement.onload = () => { applyStyles(); readerContainer.scrollTo(0, 0); };
 
             const navigate = (direction) => {
                 if (direction === 'next') {
-                    if (currentIndex < images.length - 1) {
-                        currentIndex++;
-                        loadImage();
+                    if (currentIndex < images.length - 1) { currentIndex++; loadImage(); }
+                    else {
+                        const next = relatedWorks.findIndex(it => it.id_hitomi === idHitomi);
+                        if (next !== -1 && next < relatedWorks.length - 1) promptNextVolume(relatedWorks[next + 1]);
                     }
-                } else if (direction === 'prev') {
-                    if (currentIndex > 0) {
-                        currentIndex--;
-                        loadImage();
-                    }
-                }
+                } else if (currentIndex > 0) { currentIndex--; loadImage(); }
+            };
+
+            const promptNextVolume = (next) => {
+                nextVolText.textContent = `Continue with "${next.title}"?`;
+                nextVolModal.style.opacity = '1';
+                nextVolModal.style.pointerEvents = 'auto';
+                nextVolConfirm.onclick = () => window.location.href = `/reader/${next.id_hitomi}`;
+                nextVolCancel.onclick = () => { nextVolModal.style.opacity = '0'; nextVolModal.style.pointerEvents = 'none'; };
             };
 
             const applyStyles = () => {
-                // Reset styles first
-                imgElement.style.width = 'auto';
-                imgElement.style.height = 'auto';
-                imgElement.style.maxWidth = '';
-                imgElement.style.maxHeight = '';
-                imgElement.style.transform = ''; // Clear any transform
-
-                if (fitMode === 'width') {
-                    imgElement.style.width = '100%';
-                    imgElement.style.height = 'auto';
-                } else if (fitMode === 'height') {
-                    imgElement.style.height = '100vh';
-                    imgElement.style.maxWidth = '100%';
-                } else if (fitMode === 'zoom') { // Manual width zoom
-                    imgElement.style.width = `${currentWidthPercentage}%`;
-                    imgElement.style.height = 'auto';
-                }
+                imgElement.style.width = 'auto'; imgElement.style.height = 'auto';
+                imgElement.style.maxWidth = ''; imgElement.style.maxHeight = '';
+                fitWidthButton.classList.remove('active'); fitHeightButton.classList.remove('active');
+                if (fitMode === 'width') { imgElement.style.width = '100%'; fitWidthButton.classList.add('active'); }
+                else if (fitMode === 'height') { imgElement.style.height = '100vh'; imgElement.style.maxWidth = '100%'; fitHeightButton.classList.add('active'); }
+                else if (fitMode === 'zoom') { imgElement.style.width = `${currentWidthPercentage}%`; }
                 localStorage.setItem('readerFitMode', fitMode);
-                if (fitMode === 'zoom') {
-                    localStorage.setItem('readerWidthPercentage', currentWidthPercentage);
-                } else {
-                    localStorage.removeItem('readerWidthPercentage');
-                }
+                if (fitMode === 'zoom') localStorage.setItem('readerWidthPercentage', currentWidthPercentage);
             };
 
-            const zoomIn = (e) => {
-                e.stopPropagation();
-                fitMode = 'zoom';
-                currentWidthPercentage = Math.min(currentWidthPercentage + 10, 300); // Max zoom 300%
-                applyStyles();
+            const passWheel = (e) => {
+                e.preventDefault();
+                readerContainer.scrollTop += e.deltaY;
+                readerContainer.scrollLeft += e.deltaX;
             };
+            navPrev.addEventListener('wheel', passWheel, { passive: false });
+            navNext.addEventListener('wheel', passWheel, { passive: false });
 
-            const zoomOut = (e) => {
-                e.stopPropagation();
-                fitMode = 'zoom';
-                currentWidthPercentage = Math.max(currentWidthPercentage - 10, 10); // Min zoom 10%
-                applyStyles();
-            };
+            navPrev.onclick = (e) => { e.stopPropagation(); navigate('prev'); };
+            navNext.onclick = (e) => { e.stopPropagation(); navigate('next'); };
+            readerContainer.onclick = (e) => { if (e.target !== imgElement) navigate('next'); };
+            imgElement.onclick = (e) => { e.stopPropagation(); navigate('next'); };
+            exitBtn.onclick = () => window.history.length > 1 ? window.history.back() : window.location.href = '/';
 
-            const fitToWidth = (e) => {
-                e.stopPropagation();
-                fitMode = 'width';
-                currentWidthPercentage = 100; // Reset for consistency
-                applyStyles();
-            };
-
-            const fitToHeight = (e) => {
-                e.stopPropagation();
-                fitMode = 'height';
-                currentWidthPercentage = 100; // Reset for consistency
-                applyStyles();
-            };
-
-            readerContainer.addEventListener('click', (e) => {
-                if (e.target === readerContainer || e.target === imgElement) {
-                    navigate('next');
-                }
-            });
-
-            listButton.addEventListener('click', () => {
-                if (window.history.length > 1) {
-                    window.history.back();
-                } else {
-                    window.location.href = '/';
-                }
-            });
-
-            zoomInButton.addEventListener('click', zoomIn);
-            zoomOutButton.addEventListener('click', zoomOut);
-            fitWidthButton.addEventListener('click', fitToWidth);
-            fitHeightButton.addEventListener('click', fitToHeight);
+            zoomInButton.onclick = (e) => { e.stopPropagation(); fitMode = 'zoom'; currentWidthPercentage = Math.min(currentWidthPercentage + 10, 300); applyStyles(); };
+            zoomOutButton.onclick = (e) => { e.stopPropagation(); fitMode = 'zoom'; currentWidthPercentage = Math.max(currentWidthPercentage - 10, 10); applyStyles(); };
+            fitWidthButton.onclick = (e) => { e.stopPropagation(); fitMode = 'width'; applyStyles(); };
+            fitHeightButton.onclick = (e) => { e.stopPropagation(); fitMode = 'height'; applyStyles(); };
 
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'ArrowLeft') navigate('prev');
-                if (e.key === 'ArrowRight') navigate('next');
-                if (e.key === 'Escape') window.location.href = '/';
-                if (e.key === '+' || e.key === '=') zoomIn(e);
-                if (e.key === '-') zoomOut(e);
+                if (e.key === 'ArrowRight' || e.key === ' ') navigate('next');
+                if (e.key === 'Escape') relatedPanel.classList.contains('open') ? closeDrawer() : window.location.href = '/';
+                if (e.key === '+' || e.key === '=') { fitMode = 'zoom'; currentWidthPercentage = Math.min(currentWidthPercentage + 10, 300); applyStyles(); }
+                if (e.key === '-') { fitMode = 'zoom'; currentWidthPercentage = Math.max(currentWidthPercentage - 10, 10); applyStyles(); }
             });
 
             fetchImages();
+            showUI();
         });
     </script>
 </body>
